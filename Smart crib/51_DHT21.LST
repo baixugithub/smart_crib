@@ -1,0 +1,377 @@
+C51 COMPILER V9.00   51_DHT21                                                              05/06/2015 10:38:59 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE 51_DHT21
+OBJECT MODULE PLACED IN 51_DHT21.OBJ
+COMPILER INVOKED BY: D:\其他\新建文件夹\C51\BIN\C51.EXE 51_DHT21.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          //****************************************************************//
+   2          //DHT21使用范例
+   3          //单片机 AT89S52 或 STC89C52RC
+   4          //功能   串口发送温湿度数据 晶振 11.0592M 波特率 9600
+   5          //硬件   P2.0口为通讯口连接DHT11,DHT11的电源和地连接单片机的电源和地，单片机串口加MAX232连接电脑
+   6          //****************************************************************//
+   7          
+   8          #include <reg51.h>
+   9          #include <intrins.h>
+  10          #include <stdio.h>
+  11          typedef unsigned char  U8;       /* defined for unsigned 8-bits integer variable          无符号8位整型变量  */
+  12          typedef signed   char  S8;       /* defined for signed 8-bits integer variable            有符号8位整型变量  */
+  13          typedef unsigned int   U16;      /* defined for unsigned 16-bits integer variable         无符号16位整型变量 */
+  14          typedef signed   int   S16;      /* defined for signed 16-bits integer variable           有符号16位整型变量 */
+  15          typedef unsigned long  U32;      /* defined for unsigned 32-bits integer variable         无符号32位整型变量 */
+  16          typedef signed   long  S32;      /* defined for signed 32-bits integer variable           有符号32位整型变量 */
+  17          typedef float          F32;      /* single precision floating point variable (32bits) 单精度浮点数（32位长
+             -度） */
+  18          typedef double         F64;      /* double precision floating point variable (64bits) 双精度浮点数（64位长
+             -度） */
+  19          //
+  20          #define uchar unsigned char
+  21          #define uint unsigned int
+  22          #define   Data_0_time    4
+  23          ////
+  24          sbit  P2_0  = P1^7 ;             //温湿度传感器放被窝
+  25          sbit P16 = P1^6;         //      温湿度传感器放被窝外
+  26          sbit fmq = P3^6;                  //蜂鸣器
+  27          sbit voice = P2^1;      //声音检测
+  28          
+  29          
+  30          void delay1ms(uint i)
+  31          {
+  32   1              int j;
+  33   1              while(i--)
+  34   1              {
+  35   2              for(j=115; j>=0; j--);
+  36   2              }
+  37   1      }
+  38          //----------------------------------------------//
+  39          //----------------IO口定义区--------------------//
+  40          //----------------------------------------------//
+  41          
+  42          //----------------------------------------------//
+  43          //----------------定义区--------------------//
+  44          //----------------------------------------------//
+  45          U8  U8FLAG,k;
+  46          U8  U8count,U8temp;
+  47          U8  U8T_data_H,U8T_data_L,U8RH_data_H,U8RH_data_L,U8checkdata;
+  48          U8  U8T_data_H2,U8T_data_L2,U8RH_data_H2,U8RH_data_L2,U8checkdata2;
+  49          U8  U8T_data_H_temp,U8T_data_L_temp,U8RH_data_H_temp,U8RH_data_L_temp,U8checkdata_temp;
+  50          U8  U8comdata;
+  51          U8  outdata[5];  //定义发送的字节数
+  52          U8  indata[5];
+  53          U8  count, count_r = 0;
+C51 COMPILER V9.00   51_DHT21                                                              05/06/2015 10:38:59 PAGE 2   
+
+  54          U8  str[5] = {"RS232"};
+  55          U8  str2[5] = {"RS232"};
+  56          U16 U16temp1,U16temp2;
+  57          SendData(U8 *a)
+  58          {
+  59   1              outdata[0] = a[0];
+  60   1              outdata[1] = a[1];
+  61   1              outdata[2] = a[2];
+  62   1              outdata[3] = a[3];
+  63   1              outdata[4] = a[4];
+  64   1              count = 1;
+  65   1              SBUF = outdata[0];
+  66   1      }
+  67          
+  68          void Delay(U16 j)
+  69          {
+  70   1          U8 i;
+  71   1          for(; j>0; j--)
+  72   1          {
+  73   2                      for(i=0; i<27; i++) ;
+  74   2          }
+  75   1      }
+  76          void  Delay_10us(void)
+  77          {
+  78   1          U8 i;
+  79   1          i--;
+  80   1          i--;
+  81   1          i--;
+  82   1          i--;
+  83   1          i--;
+  84   1          i--;
+  85   1      }
+  86          
+  87           void  COM(void)
+  88          {
+  89   1      
+  90   1          U8 i;
+  91   1      
+  92   1          for(i=0;i<8;i++)
+  93   1          {
+  94   2      
+  95   2              U8FLAG=2;
+  96   2                      while((!P2_0) && U8FLAG++);
+  97   2              Delay_10us();
+  98   2              Delay_10us();
+  99   2              Delay_10us();
+ 100   2              U8temp = 0;
+ 101   2              if(P2_0)U8temp = 1;
+ 102   2              U8FLAG=2;
+ 103   2              while((P2_0) && U8FLAG++);
+ 104   2                      //超时则跳出for循环
+ 105   2              if(U8FLAG==1)break;
+ 106   2                      //判断数据位是0还是1
+ 107   2                      // 如果高电平高过预定0高电平值则数据位为 1
+ 108   2              U8comdata<<=1;
+ 109   2              U8comdata|=U8temp;        //0
+ 110   2          }//rof
+ 111   1      
+ 112   1      }
+ 113          
+ 114          void  COM2(void)
+ 115          {
+C51 COMPILER V9.00   51_DHT21                                                              05/06/2015 10:38:59 PAGE 3   
+
+ 116   1      
+ 117   1          U8 i;
+ 118   1      
+ 119   1          for(i=0;i<8;i++)
+ 120   1          {
+ 121   2      
+ 122   2              U8FLAG = 2;
+ 123   2                      while((!P16) && U8FLAG++);
+ 124   2              Delay_10us();
+ 125   2              Delay_10us();
+ 126   2              Delay_10us();
+ 127   2              U8temp = 0;
+ 128   2              if(P16)U8temp = 1;
+ 129   2              U8FLAG = 2;
+ 130   2              while((P16) && U8FLAG++);
+ 131   2                      //超时则跳出for循环
+ 132   2              if(U8FLAG == 1) break;
+ 133   2                      //判断数据位是0还是1
+ 134   2                      // 如果高电平高过预定0高电平值则数据位为 1
+ 135   2              U8comdata <<= 1;
+ 136   2              U8comdata|=U8temp;        //0
+ 137   2          }//rof
+ 138   1      
+ 139   1      }
+ 140                  //--------------------------------
+ 141                  //-----湿度读取子程序 ------------
+ 142                  //--------------------------------
+ 143                  //----以下变量均为全局变量--------
+ 144                  //----温度高8位== U8T_data_H------
+ 145                  //----温度低8位== U8T_data_L------
+ 146                  //----湿度高8位== U8RH_data_H-----
+ 147                  //----湿度低8位== U8RH_data_L-----
+ 148                  //----校验 8位 == U8checkdata-----
+ 149                  //----调用相关子程序如下----------
+ 150                  //---- Delay();, Delay_10us();,COM();
+ 151                  //--------------------------------
+ 152          
+ 153          void RH1(void)
+ 154          {
+ 155   1          //主机拉低18ms
+ 156   1          P2_0 = 0;
+ 157   1          Delay(180);
+ 158   1          P2_0 = 1;
+ 159   1          //总线由上拉电阻拉高 主机延时20us
+ 160   1          Delay_10us();
+ 161   1          Delay_10us();
+ 162   1          Delay_10us();
+ 163   1          Delay_10us();
+ 164   1          //主机设为输入 判断从机响应信号
+ 165   1          P2_0 = 1;
+ 166   1          //判断从机是否有低电平响应信号 如不响应则跳出，响应则向下运行
+ 167   1          if(!P2_0)            //T !
+ 168   1          {
+ 169   2                 U8FLAG = 2;
+ 170   2             //判断从机是否发出 80us 的低电平响应信号是否结束
+ 171   2                 while((!P2_0) && U8FLAG++);
+ 172   2                 U8FLAG = 2;
+ 173   2                 //判断从机是否发出 80us 的高电平，如发出则进入数据接收状态
+ 174   2                 while((P2_0) && U8FLAG++);
+ 175   2                //数据接收状态
+ 176   2                 COM();
+ 177   2                 U8RH_data_H_temp = U8comdata;
+C51 COMPILER V9.00   51_DHT21                                                              05/06/2015 10:38:59 PAGE 4   
+
+ 178   2                 COM();
+ 179   2                 U8RH_data_L_temp = U8comdata;
+ 180   2                 COM();
+ 181   2                 U8T_data_H_temp = U8comdata;
+ 182   2                 COM();
+ 183   2                 U8T_data_L_temp = U8comdata;
+ 184   2                 COM();
+ 185   2                 U8checkdata_temp = U8comdata;
+ 186   2                 P2_0 = 1;
+ 187   2               //数据校验
+ 188   2      
+ 189   2                 U8temp = (U8T_data_H_temp+U8T_data_L_temp+U8RH_data_H_temp+U8RH_data_L_temp);
+ 190   2                 if(U8temp == U8checkdata_temp)
+ 191   2                 {
+ 192   3                        U8RH_data_L = U8RH_data_L_temp;
+ 193   3                        U8RH_data_H = U8RH_data_H_temp;
+ 194   3                        U8T_data_H = U8T_data_H_temp;
+ 195   3                        U8T_data_L = U8T_data_L_temp;
+ 196   3                        U8checkdata = U8checkdata_temp;
+ 197   3                 }
+ 198   2          }
+ 199   1      }
+ 200          
+ 201          void RH2(void)
+ 202          {
+ 203   1          //主机拉低18ms
+ 204   1          P16 = 0;
+ 205   1          Delay(180);
+ 206   1          P16 = 1;
+ 207   1          //总线由上拉电阻拉高 主机延时20us
+ 208   1          Delay_10us();
+ 209   1          Delay_10us();
+ 210   1          Delay_10us();
+ 211   1          Delay_10us();
+ 212   1          //主机设为输入 判断从机响应信号
+ 213   1          P16 = 1;
+ 214   1          //判断从机是否有低电平响应信号 如不响应则跳出，响应则向下运行
+ 215   1          if(!P16)             //T !
+ 216   1          {
+ 217   2                 U8FLAG = 2;
+ 218   2               //判断从机是否发出 80us 的低电平响应信号是否结束
+ 219   2                 while((!P16) && U8FLAG++);
+ 220   2                 U8FLAG = 2;
+ 221   2               //判断从机是否发出 80us 的高电平，如发出则进入数据接收状态
+ 222   2                 while((P16) && U8FLAG++);
+ 223   2               //数据接收状态
+ 224   2                 COM2();
+ 225   2                 U8RH_data_H_temp = U8comdata;
+ 226   2                 COM2();
+ 227   2                 U8RH_data_L_temp = U8comdata;
+ 228   2                 COM2();
+ 229   2                 U8T_data_H_temp = U8comdata;
+ 230   2                 COM2();
+ 231   2                 U8T_data_L_temp = U8comdata;
+ 232   2                 COM2();
+ 233   2                 U8checkdata_temp = U8comdata;
+ 234   2                 P16 = 1;
+ 235   2               //数据校验
+ 236   2      
+ 237   2                 U8temp = (U8T_data_H_temp+U8T_data_L_temp+U8RH_data_H_temp+U8RH_data_L_temp);
+ 238   2                 if(U8temp == U8checkdata_temp)
+ 239   2                 {
+C51 COMPILER V9.00   51_DHT21                                                              05/06/2015 10:38:59 PAGE 5   
+
+ 240   3                        U8RH_data_H2 =U8RH_data_H_temp;
+ 241   3                        U8RH_data_L2 = U8RH_data_L_temp;
+ 242   3                        U8T_data_H2 = U8T_data_H_temp;
+ 243   3                        U8T_data_L2 = U8T_data_L_temp;
+ 244   3                        U8checkdata2 = U8checkdata_temp;
+ 245   3                 }
+ 246   2          }
+ 247   1      }
+ 248          
+ 249          //----------------------------------------------
+ 250          //main()功能描述:  AT89C51  11.0592MHz  串口发
+ 251          //送温湿度数据,波特率 9600
+ 252          //备注：为保证WiFi能适应新旧路由器的响应时间
+ 253          //      每次启动是会延时10秒
+ 254          //----------------------------------------------
+ 255          void uart_init(void)
+ 256          {
+ 257   1              TMOD = 0x20;            //定时器/计数器1,工作方式2
+ 258   1              TH1 = 0xfd;             //设置波特率为9600
+ 259   1              TL1 = 0xfd;
+ 260   1              TR1 = 1;                //启动定时器/计数器1
+ 261   1              SCON = 0x50;            //串口工作方式1，允许串行控制
+ 262   1              PCON = 0x00;            //设置SMOD=0
+ 263   1              IE = 0x90;              //CPU允许中断，串行允许中断
+ 264   1              TI = 1;                 //直接使用printf必须加入此句才能实现发送
+ 265   1      
+ 266   1              delay1ms(3000);         //等待wifi上电完成
+ 267   1          printf("AT+CWMODE=3\n");   //         设置为ap+stp共存模式
+ 268   1          delay1ms(3000);
+ 269   1          printf("AT+RST\n");      //重启
+ 270   1          delay1ms(10000);
+ 271   1          printf("AT+CWJAP=\"DQGC\",\"njw12345\"");        //连接路由器
+ 272   1          printf("\n");
+ 273   1          delay1ms(10000);
+ 274   1          printf("AT+CIPSTART=\"TCP\",\"192.168.1.103\",9790");       //连接服务器
+ 275   1          printf("\n");
+ 276   1          delay1ms(3000);
+ 277   1          printf("AT+CIPMODE=1\n");                                                           //设置透传模式
+ 278   1          delay1ms(3000);
+ 279   1          printf("AT+CIPSEND\n");                                 //开始透传
+ 280   1          delay1ms(1000);
+ 281   1          printf("Hello,User!\n");
+ 282   1      }
+ 283          
+ 284          void main()
+ 285          {
+ 286   1      
+ 287   1              voice = 1;                         //声音检测位
+ 288   1          uart_init();
+ 289   1              while(1)
+ 290   1              {
+ 291   2                 delay1ms(1000);
+ 292   2                 //------------------------
+ 293   2                 //调用温湿度读取子程序
+ 294   2                 RH1();
+ 295   2      
+ 296   2                 //串口显示程序
+ 297   2                 //--------------------------
+ 298   2                 str[0] = U8RH_data_H;
+ 299   2                 str[1] = U8RH_data_L;
+ 300   2                 str[2] = U8T_data_H;
+ 301   2                 str[3] = U8T_data_L;
+C51 COMPILER V9.00   51_DHT21                                                              05/06/2015 10:38:59 PAGE 6   
+
+ 302   2                 str[4] = U8checkdata;
+ 303   2      
+ 304   2                 RH2();
+ 305   2                 str2[0] = U8RH_data_H2;
+ 306   2                 str2[1] = U8RH_data_L2;
+ 307   2                 str2[2] = U8T_data_H2;
+ 308   2                 str2[3] = U8T_data_L2;
+ 309   2                 str2[4] = U8checkdata2;
+ 310   2      
+ 311   2      //         VoiceScan();                   //声音检测
+ 312   2                      if(voice == 0)
+ 313   2                      {
+ 314   3                      //      delay1ms(1);
+ 315   3                      //      if(voice == 0)
+ 316   3                      //      {
+ 317   3                                      printf("Your child may wake up!\n");
+ 318   3                      //      }
+ 319   3                      }
+ 320   2      //         Bed_wetting();                       //尿床检测         (str2里面{17}-外面str1)
+ 321   2      //              if((str2[2]-1) - str[2] >= 20)             //1A
+ 322   2      //              {
+ 323   2      //                        printf("Your child may wet your bed!\n");
+ 324   2      //              }
+ 325   2      
+ 326   2      //踢被子检测 
+ 327   2              //      if( str[0] - (str2[0]-5) >= 0)
+ 328   2              //      {
+ 329   2              //                printf("The quilt could be kicked!\n");
+ 330   2              //      }
+ 331   2      
+ 332   2      //发烧检测
+ 333   2      //              if((str2[0]-5)-str[0] > 0)
+ 334   2      //              {
+ 335   2      //                         printf("Your baby may have a fever!\n");
+ 336   2      //              }
+ 337   2      
+ 338   2              }
+ 339   1      
+ 340   1      }//end of  main
+ 341          
+*** WARNING C290 IN LINE 66 OF 51_DHT21.C: missing return value
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    676    ----
+   CONSTANT SIZE    =    153    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     46       1
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  0 ERROR(S)
